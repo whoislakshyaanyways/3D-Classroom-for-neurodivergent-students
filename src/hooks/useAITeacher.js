@@ -211,7 +211,28 @@ export const useAITeacher = create((set, get) => ({
           set(() => ({ isSpeaking: false }));
         });
       } catch (err) {
-        console.error("Failed to load TTS audio:", err);
+        console.warn("Server TTS error, attempting browser speech synthesis fallback:", err);
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+          try {
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.rate = 0.95;
+            utterance.pitch = 1.05;
+            utterance.onstart = () => {
+              set(() => ({ ttsLoading: false, isSpeaking: true }));
+            };
+            utterance.onend = () => {
+              set(() => ({ isSpeaking: false }));
+            };
+            utterance.onerror = () => {
+              set(() => ({ ttsLoading: false, isSpeaking: false }));
+            };
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+            return;
+          } catch (synthErr) {
+            console.error("SpeechSynthesis error:", synthErr);
+          }
+        }
         set(() => ({ ttsLoading: false, isSpeaking: false }));
       }
     } else {
@@ -291,7 +312,28 @@ export const useAITeacher = create((set, get) => ({
         set(() => ({ isSpeaking: false }));
       });
     } catch (err) {
-      console.error("Failed to load lesson TTS:", err);
+      console.warn("Server lesson TTS error, falling back to browser speech synthesis:", err);
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(step.spokenText);
+          utterance.rate = 0.95;
+          utterance.pitch = 1.05;
+          utterance.onstart = () => {
+            set(() => ({ ttsLoading: false, isSpeaking: true }));
+          };
+          utterance.onend = () => {
+            set(() => ({ isSpeaking: false }));
+          };
+          utterance.onerror = () => {
+            set(() => ({ ttsLoading: false, isSpeaking: false }));
+          };
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+          return;
+        } catch (synthErr) {
+          console.error("SpeechSynthesis error:", synthErr);
+        }
+      }
       set(() => ({ ttsLoading: false, isSpeaking: false }));
     }
   },
