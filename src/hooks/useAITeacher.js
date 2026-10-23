@@ -22,30 +22,109 @@ export const useAITeacher = create((set, get) => ({
   isPresenting: false,
   setIsPresenting: (isPresenting) => set(() => ({ isPresenting })),
   loading: false,
+  recording: false,
+  setRecording: (recording) => set(() => ({ recording })),
+  speechLoading: false,
+  ttsLoading: false,
 
   askAI: async (question) => {
-    if (!question) return;
+    if (!question || !question.trim()) return;
 
     const message = {
-      question,
+      question: question.trim(),
       id: get().messages.length,
+      answer: null,
     };
-    set(() => ({ loading: true }));
+
+    // Immediately register message so the board shows the question in real time
+    set((state) => ({
+      currentMessage: message,
+      messages: [...state.messages, message],
+      loading: true,
+    }));
 
     try {
-      const res = await fetch(`/api/ai?question=${encodeURIComponent(question)}`);
+      const res = await fetch(`/api/ai?question=${encodeURIComponent(question.trim())}`);
+      if (!res.ok) {
+        throw new Error(`AI request failed with status ${res.status}`);
+      }
       const data = await res.json();
       message.answer = data;
 
+      // Update message with final answer and turn loading off immediately!
       set((state) => ({
         currentMessage: message,
-        messages: [...state.messages, message],
+        messages: state.messages.map((m) => (m.id === message.id ? message : m)),
         loading: false,
       }));
+
+      // Play audio response asynchronously
       get().playMessage(message);
     } catch (err) {
       console.error("Failed to ask AI:", err);
-      set(() => ({ loading: false }));
+      message.answer = {
+        answer: "I couldn't fetch an answer right now.",
+        explanation: "Please check your network connection and try again.",
+        steps: [],
+      };
+      set((state) => ({
+        currentMessage: message,
+        messages: state.messages.map((m) => (m.id === message.id ? message : m)),
+        loading: false,
+      }));
+    }
+  },
+
+  // Transcribe an audio Blob using the STT API route
+  transcribeAudio: async (audioBlob) => {
+    if (!audioBlob || audioBlob.size === 0) return "";
+    set(() => ({ speechLoading: true }));
+
+    try {
+      const formData = new FormData();
+      formData.append("file", audioBlob, "recording.webm");
+
+      const res = await fetch("/api/stt", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `STT request failed: ${res.status}`);
+      }
+
+      const data = await res.json();
+      set(() => ({ speechLoading: false }));
+      return (data.text || "").trim();
+    } catch (err) {
+      console.error("Failed to transcribe audio:", err);
+      set(() => ({ speechLoading: false }));
+      throw err;
+    }
+  },
+
+  // Accepts speech as input: either an audio Blob or a recognized speech transcript string
+  askAISpeech: async (speechInput) => {
+    if (!speechInput) return "";
+
+    if (typeof speechInput === "string") {
+      await get().askAI(speechInput);
+      return speechInput;
+    }
+
+    try {
+      const transcript = await get().transcribeAudio(speechInput);
+      if (transcript && transcript.trim()) {
+        await get().askAI(transcript.trim());
+        return transcript.trim();
+      } else {
+        console.warn("No transcript returned from STT");
+        return "";
+      }
+    } catch (err) {
+      console.error("Failed to process speech input:", err);
+      throw err;
     }
   },
 
@@ -53,10 +132,9 @@ export const useAITeacher = create((set, get) => ({
     set(() => ({ currentMessage: message }));
 
     if (!message.audioPlayer) {
-      set(() => ({ loading: true }));
+      set(() => ({ ttsLoading: true }));
 
       try {
-        // Speak the answer + explanation
         const textToSpeak =
           [message.answer?.answer, message.answer?.explanation]
             .filter(Boolean)
@@ -83,12 +161,12 @@ export const useAITeacher = create((set, get) => ({
         };
 
         set(() => ({
-          loading: false,
+          ttsLoading: false,
           messages: get().messages.map((m) => (m.id === message.id ? message : m)),
         }));
       } catch (err) {
         console.error("Failed to load TTS audio:", err);
-        set(() => ({ loading: false }));
+        set(() => ({ ttsLoading: false }));
       }
     }
 
