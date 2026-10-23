@@ -118,8 +118,16 @@ const SceneContent = () => {
             </Html>
           )}
 
-          {/* 2. VR Classroom Mode: 3D Blackboard */}
-          {isVR && <VRBoard {...itemPlacement[classroom].board} />}
+          {/* 2. VR Classroom Mode: 3D Blackboard (placed cleanly in front of classroom wall) */}
+          {isVR && (
+            <VRBoard
+              position={
+                classroom === "default"
+                  ? [0.45, 0.382, -5.45]
+                  : [1.4, 0.84, -7.2]
+              }
+            />
+          )}
 
           {/* 3. VR Classroom Mode: 3D Assistance Voice Button on desk */}
           {isVR && <VRVoiceButton position={[0, -0.65, -1.2]} />}

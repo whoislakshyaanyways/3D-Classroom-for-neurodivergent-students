@@ -1,10 +1,10 @@
 "use client";
 import { useAITeacher } from "@/hooks/useAITeacher";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
-// Safe rounded rectangle that works across all WebXR and browser engines
+// Safe rounded rectangle that works reliably across all WebXR and browser engines
 function drawRoundedRect(ctx, x, y, width, height, radius) {
   ctx.beginPath();
   if (typeof ctx.roundRect === "function") {
@@ -68,29 +68,38 @@ export const VRBoard = (props) => {
 
   const { invalidate } = useThree();
   const needsUpdateRef = useRef(true);
+  const canvasRef = useRef(null);
+  const [texture, setTexture] = useState(null);
 
   // Latest message prioritizes currentMessage, falling back to last in array
-  const latestMessage = currentMessage || (messages.length > 0 ? messages[messages.length - 1] : null);
+  const latestMessage =
+    currentMessage || (messages.length > 0 ? messages[messages.length - 1] : null);
 
-  // 2048x1152 high-resolution offscreen canvas
-  const canvas = useMemo(() => {
-    if (typeof document === "undefined") return null;
-    const c = document.createElement("canvas");
-    c.width = 2048;
-    c.height = 1152;
-    return c;
-  }, []);
+  // Client-safe canvas and texture initialization (prevents SSR null hydration issues)
+  useEffect(() => {
+    if (typeof document === "undefined") return;
 
-  const texture = useMemo(() => {
-    if (!canvas) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = 2048;
+    canvas.height = 1152;
+    canvasRef.current = canvas;
+
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.minFilter = THREE.LinearFilter;
     tex.magFilter = THREE.LinearFilter;
     tex.generateMipmaps = false;
-    return tex;
-  }, [canvas]);
 
+    setTexture(tex);
+    needsUpdateRef.current = true;
+    invalidate();
+
+    return () => {
+      tex.dispose();
+    };
+  }, [invalidate]);
+
+  // Sync texture updates with the Three.js / WebXR animation loop
   useFrame(() => {
     if (needsUpdateRef.current && texture) {
       texture.needsUpdate = true;
@@ -98,7 +107,9 @@ export const VRBoard = (props) => {
     }
   });
 
+  // Re-draw chalkboard content whenever state or active message changes
   useEffect(() => {
+    const canvas = canvasRef.current;
     if (!canvas || !texture) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -107,13 +118,13 @@ export const VRBoard = (props) => {
     const height = canvas.height;
 
     // 1. Draw Chalkboard Slate Background
-    ctx.fillStyle = "#0f1f17";
+    ctx.fillStyle = "#0c1a13";
     ctx.fillRect(0, 0, width, height);
 
     // Chalkboard subtle border
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
     ctx.lineWidth = 6;
-    ctx.strokeRect(28, 28, width - 56, height - 56);
+    ctx.strokeRect(24, 24, width - 48, height - 48);
 
     // Subtle chalkboard vignette
     const grad = ctx.createRadialGradient(
@@ -124,16 +135,16 @@ export const VRBoard = (props) => {
       height / 2,
       950
     );
-    grad.addColorStop(0, "rgba(255, 255, 255, 0.025)");
-    grad.addColorStop(1, "rgba(0, 0, 0, 0.45)");
+    grad.addColorStop(0, "rgba(255, 255, 255, 0.03)");
+    grad.addColorStop(1, "rgba(0, 0, 0, 0.5)");
     ctx.fillStyle = grad;
-    ctx.fillRect(32, 32, width - 64, height - 64);
+    ctx.fillRect(28, 28, width - 56, height - 56);
 
     // Top Status Indicator / Header
     const topY = 75;
     ctx.textAlign = "left";
     ctx.font = "bold 26px system-ui, -apple-system, sans-serif";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
     ctx.fillText("AI CLASSROOM TUTOR", 80, topY);
 
     // Top right badge depending on active state
@@ -189,6 +200,7 @@ export const VRBoard = (props) => {
         height / 2 + 150
       );
 
+      texture.needsUpdate = true;
       needsUpdateRef.current = true;
       invalidate();
       return;
@@ -206,6 +218,7 @@ export const VRBoard = (props) => {
       ctx.fillStyle = "#93c5fd";
       ctx.fillText("Transcribing with AI Whisper...", width / 2, height / 2 + 40);
 
+      texture.needsUpdate = true;
       needsUpdateRef.current = true;
       invalidate();
       return;
@@ -264,6 +277,7 @@ export const VRBoard = (props) => {
           curY + 190
         );
 
+        texture.needsUpdate = true;
         needsUpdateRef.current = true;
         invalidate();
         return;
@@ -370,10 +384,10 @@ export const VRBoard = (props) => {
       }
     }
 
+    texture.needsUpdate = true;
     needsUpdateRef.current = true;
     invalidate();
   }, [
-    canvas,
     texture,
     latestMessage,
     loading,
@@ -385,20 +399,22 @@ export const VRBoard = (props) => {
 
   return (
     <group {...props}>
-      {/* Wooden blackboard frame behind */}
-      <mesh position={[0, 0, 0.04]}>
-        <boxGeometry args={[4.96, 2.86, 0.06]} />
+      {/* Wooden blackboard frame */}
+      <mesh position={[0, 0, -0.02]}>
+        <boxGeometry args={[4.42, 2.56, 0.04]} />
         <meshStandardMaterial color="#2d1c13" roughness={0.7} />
       </mesh>
 
       {/* Chalkboard Slate Plane with live high-res CanvasTexture */}
       {texture && (
-        <mesh position={[0, 0, 0.12]}>
-          <planeGeometry args={[4.8, 2.7]} />
+        <mesh position={[0, 0, 0.015]}>
+          <planeGeometry args={[4.26, 2.4]} />
           <meshBasicMaterial
             map={texture}
             toneMapped={false}
             side={THREE.DoubleSide}
+            polygonOffset={true}
+            polygonOffsetFactor={-1}
           />
         </mesh>
       )}
