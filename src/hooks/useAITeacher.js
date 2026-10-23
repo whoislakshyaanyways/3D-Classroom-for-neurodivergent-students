@@ -26,11 +26,12 @@ export const useAITeacher = create((set, get) => ({
   setRecording: (recording) => set(() => ({ recording })),
   speechLoading: false,
   ttsLoading: false,
+  isSpeaking: false,
 
   askAI: async (question) => {
     if (!question || !question.trim()) return;
 
-    const message = {
+    const initialMessage = {
       question: question.trim(),
       id: get().messages.length,
       answer: null,
@@ -38,8 +39,8 @@ export const useAITeacher = create((set, get) => ({
 
     // Immediately register message so the board shows the question in real time
     set((state) => ({
-      currentMessage: message,
-      messages: [...state.messages, message],
+      currentMessage: initialMessage,
+      messages: [...state.messages, initialMessage],
       loading: true,
     }));
 
@@ -49,27 +50,38 @@ export const useAITeacher = create((set, get) => ({
         throw new Error(`AI request failed with status ${res.status}`);
       }
       const data = await res.json();
-      message.answer = data;
 
-      // Update message with final answer and turn loading off immediately!
+      // Create a brand-new immutable message object so React and Zustand detect state change immediately!
+      const completedMessage = {
+        ...initialMessage,
+        answer: data,
+      };
+
       set((state) => ({
-        currentMessage: message,
-        messages: state.messages.map((m) => (m.id === message.id ? message : m)),
+        currentMessage: completedMessage,
+        messages: state.messages.map((m) =>
+          m.id === initialMessage.id ? completedMessage : m
+        ),
         loading: false,
       }));
 
       // Play audio response asynchronously
-      get().playMessage(message);
+      get().playMessage(completedMessage);
     } catch (err) {
       console.error("Failed to ask AI:", err);
-      message.answer = {
-        answer: "I couldn't fetch an answer right now.",
-        explanation: "Please check your network connection and try again.",
-        steps: [],
+      const errorMessage = {
+        ...initialMessage,
+        answer: {
+          answer: "I couldn't fetch an answer right now.",
+          explanation: "Please check your network connection and try again.",
+          steps: [],
+        },
       };
       set((state) => ({
-        currentMessage: message,
-        messages: state.messages.map((m) => (m.id === message.id ? message : m)),
+        currentMessage: errorMessage,
+        messages: state.messages.map((m) =>
+          m.id === initialMessage.id ? errorMessage : m
+        ),
         loading: false,
       }));
     }
@@ -129,7 +141,7 @@ export const useAITeacher = create((set, get) => ({
   },
 
   playMessage: async (message) => {
-    set(() => ({ currentMessage: message }));
+    if (!message || !message.answer) return;
 
     if (!message.audioPlayer) {
       set(() => ({ ttsLoading: true }));
@@ -154,32 +166,47 @@ export const useAITeacher = create((set, get) => ({
         const visemes = visemesHeader ? JSON.parse(visemesHeader) : [];
         const audioPlayer = new Audio(URL.createObjectURL(audio));
 
-        message.visemes = visemes;
-        message.audioPlayer = audioPlayer;
-        message.audioPlayer.onended = () => {
-          set(() => ({ currentMessage: null }));
+        const speakingMessage = {
+          ...message,
+          visemes,
+          audioPlayer,
         };
 
-        set(() => ({
+        speakingMessage.audioPlayer.onended = () => {
+          // When speaking finishes, keep the text on the board! Just mark speaking as false.
+          set(() => ({ isSpeaking: false }));
+        };
+
+        set((state) => ({
           ttsLoading: false,
-          messages: get().messages.map((m) => (m.id === message.id ? message : m)),
+          isSpeaking: true,
+          currentMessage: speakingMessage,
+          messages: state.messages.map((m) =>
+            m.id === message.id ? speakingMessage : m
+          ),
         }));
+
+        speakingMessage.audioPlayer.currentTime = 0;
+        speakingMessage.audioPlayer.play().catch((err) => {
+          console.log("Audio playback not started:", err?.message || err);
+          set(() => ({ isSpeaking: false }));
+        });
       } catch (err) {
         console.error("Failed to load TTS audio:", err);
-        set(() => ({ ttsLoading: false }));
+        set(() => ({ ttsLoading: false, isSpeaking: false }));
       }
-    }
-
-    if (message.audioPlayer) {
+    } else {
+      set(() => ({ isSpeaking: true }));
       message.audioPlayer.currentTime = 0;
       message.audioPlayer.play().catch((err) => {
         console.log("Audio playback not started:", err?.message || err);
+        set(() => ({ isSpeaking: false }));
       });
     }
   },
 
   stopMessage: (message) => {
-    if (message.audioPlayer) message.audioPlayer.pause();
-    set(() => ({ currentMessage: null }));
+    if (message?.audioPlayer) message.audioPlayer.pause();
+    set(() => ({ isSpeaking: false }));
   },
 }));

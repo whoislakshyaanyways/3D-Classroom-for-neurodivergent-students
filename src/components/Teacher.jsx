@@ -27,6 +27,7 @@ export function Teacher({ teacher = "Naoki", ...props }) {
 
   const currentMessage = useAITeacher((state) => state.currentMessage);
   const loading = useAITeacher((state) => state.loading);
+  const isSpeaking = useAITeacher((state) => state.isSpeaking);
   const { animations } = useGLTF(`/models/animations_${teacher}.glb`);
   const { actions, mixer } = useAnimations(animations, group);
   const [animation, setAnimation] = useState("Idle");
@@ -52,12 +53,12 @@ export function Teacher({ teacher = "Naoki", ...props }) {
   useEffect(() => {
     if (loading) {
       setAnimation("Thinking");
-    } else if (currentMessage) {
+    } else if (isSpeaking) {
       setAnimation(randInt(0, 1) ? "Talking" : "Talking2");
     } else {
       setAnimation("Idle");
     }
-  }, [currentMessage, loading]);
+  }, [isSpeaking, loading]);
 
   useFrame(({ camera }) => {
     // Smile
@@ -71,6 +72,7 @@ export function Teacher({ teacher = "Naoki", ...props }) {
     }
 
     if (
+      isSpeaking &&
       currentMessage &&
       currentMessage.visemes &&
       currentMessage.audioPlayer
@@ -83,8 +85,9 @@ export function Teacher({ teacher = "Naoki", ...props }) {
         }
       }
       if (
+        actions[animation] &&
         actions[animation].time >
-        actions[animation].getClip().duration - ANIMATION_FADE_TIME
+          actions[animation].getClip().duration - ANIMATION_FADE_TIME
       ) {
         setAnimation((animation) =>
           animation === "Talking" ? "Talking2" : "Talking"
