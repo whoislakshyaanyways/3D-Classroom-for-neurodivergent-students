@@ -1,8 +1,23 @@
 import { create } from "zustand";
+import { LESSON_1_STEPS } from "@/data/lessons";
 
 export const teachers = ["Naoki"];
 
 export const useAITeacher = create((set, get) => ({
+  mode: "normal", // "normal" | "lesson1"
+  setMode: (mode) => {
+    // If switching mode, stop current audio
+    const current = get().currentMessage;
+    if (current?.audioPlayer) {
+      current.audioPlayer.pause();
+    }
+    set(() => ({ mode, isSpeaking: false, ttsLoading: false }));
+    if (mode === "lesson1") {
+      get().playLessonStep(0);
+    }
+  },
+  lessonStep: 0,
+  lessonAudioCache: {},
   messages: [],
   currentMessage: null,
   teacher: "Naoki",
@@ -45,7 +60,11 @@ export const useAITeacher = create((set, get) => ({
     }));
 
     try {
-      const res = await fetch(`/api/ai?question=${encodeURIComponent(question.trim())}`);
+      const isLesson = get().mode === "lesson1";
+      const url = `/api/ai?question=${encodeURIComponent(question.trim())}${
+        isLesson ? "&context=lesson1_fivesenses" : ""
+      }`;
+      const res = await fetch(url);
       if (!res.ok) {
         throw new Error(`AI request failed with status ${res.status}`);
       }
@@ -208,5 +227,90 @@ export const useAITeacher = create((set, get) => ({
   stopMessage: (message) => {
     if (message?.audioPlayer) message.audioPlayer.pause();
     set(() => ({ isSpeaking: false }));
+  },
+
+  playLessonStep: async (stepIndex) => {
+    const step = LESSON_1_STEPS[stepIndex];
+    if (!step) return;
+
+    // Stop currently playing audio
+    const current = get().currentMessage;
+    if (current?.audioPlayer) {
+      current.audioPlayer.pause();
+    }
+
+    set(() => ({
+      lessonStep: stepIndex,
+      mode: "lesson1",
+      ttsLoading: !get().lessonAudioCache[step.id],
+      isSpeaking: false,
+    }));
+
+    try {
+      let cached = get().lessonAudioCache[step.id];
+
+      if (!cached) {
+        const audioRes = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teacher: get().teacher, text: step.spokenText }),
+        });
+        if (!audioRes.ok) throw new Error(`TTS request failed: ${audioRes.status}`);
+
+        const audio = await audioRes.blob();
+        const visemesHeader = audioRes.headers.get("visemes");
+        const visemes = visemesHeader ? JSON.parse(visemesHeader) : [];
+        const audioPlayer = new Audio(URL.createObjectURL(audio));
+
+        cached = { audioPlayer, visemes };
+        set((state) => ({
+          lessonAudioCache: { ...state.lessonAudioCache, [step.id]: cached },
+        }));
+      }
+
+      const lessonMessage = {
+        isLesson: true,
+        step,
+        visemes: cached.visemes,
+        audioPlayer: cached.audioPlayer,
+      };
+
+      cached.audioPlayer.onended = () => {
+        set(() => ({ isSpeaking: false }));
+      };
+
+      set(() => ({
+        ttsLoading: false,
+        isSpeaking: true,
+        currentMessage: lessonMessage,
+      }));
+
+      cached.audioPlayer.currentTime = 0;
+      cached.audioPlayer.play().catch((err) => {
+        console.log("Audio playback could not auto-start:", err?.message || err);
+        set(() => ({ isSpeaking: false }));
+      });
+    } catch (err) {
+      console.error("Failed to load lesson TTS:", err);
+      set(() => ({ ttsLoading: false, isSpeaking: false }));
+    }
+  },
+
+  nextLessonStep: () => {
+    const nextIdx = get().lessonStep + 1;
+    if (nextIdx < LESSON_1_STEPS.length) {
+      get().playLessonStep(nextIdx);
+    }
+  },
+
+  prevLessonStep: () => {
+    const prevIdx = get().lessonStep - 1;
+    if (prevIdx >= 0) {
+      get().playLessonStep(prevIdx);
+    }
+  },
+
+  replayLessonStep: () => {
+    get().playLessonStep(get().lessonStep);
   },
 }));

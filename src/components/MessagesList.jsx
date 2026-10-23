@@ -1,7 +1,9 @@
+import { Lesson1View } from "./Lesson1View";
 import { useAITeacher } from "@/hooks/useAITeacher";
 import { useEffect, useRef } from "react";
 
 export const MessagesList = () => {
+  const mode = useAITeacher((state) => state.mode);
   const messages = useAITeacher((state) => state.messages);
   const playMessage = useAITeacher((state) => state.playMessage);
   const stopMessage = useAITeacher((state) => state.stopMessage);
@@ -26,20 +28,24 @@ export const MessagesList = () => {
       } p-8 overflow-y-auto flex flex-col space-y-8 bg-transparent opacity-80`}
       ref={container}
     >
-      {messages.length === 0 && (
-        <div className="h-full w-full grid place-content-center text-center">
-          <h2 className="text-8xl font-bold text-white/90 italic">
-            AI Classroom
-            <br />
-            Interactive Tutor
-          </h2>
-          <p className="text-4xl text-white/60 mt-4">
-            Ask any question below to begin your lesson!
-          </p>
-        </div>
-      )}
+      {mode === "lesson1" ? (
+        <Lesson1View />
+      ) : (
+        <>
+          {messages.length === 0 && (
+            <div className="h-full w-full grid place-content-center text-center">
+              <h2 className="text-8xl font-bold text-white/90 italic">
+                AI Classroom
+                <br />
+                Interactive Tutor
+              </h2>
+              <p className="text-4xl text-white/60 mt-4">
+                Ask any question below or switch to Lesson 1 above!
+              </p>
+            </div>
+          )}
 
-      {messages.map((message, i) => (
+          {messages.map((message, i) => (
         <div key={i} className="flex flex-col space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-grow">
@@ -145,6 +151,8 @@ export const MessagesList = () => {
           )}
         </div>
       ))}
+        </>
+      )}
     </div>
   );
 };

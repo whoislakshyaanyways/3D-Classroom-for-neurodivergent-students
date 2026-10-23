@@ -48,10 +48,39 @@ const itemPlacement = {
 export const Experience = () => {
   const vrMode = useAITeacher((state) => state.vrMode);
   const isPresenting = useAITeacher((state) => state.isPresenting);
+  const mode = useAITeacher((state) => state.mode);
+  const setMode = useAITeacher((state) => state.setMode);
   const isVR = isPresenting || vrMode;
 
   return (
     <>
+      {/* Top Left: Mode Selector (Normal AI Assistance vs Lesson 1) */}
+      <div className="fixed top-6 left-6 z-50 flex items-center gap-2">
+        <button
+          onClick={() => setMode("normal")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-base shadow-xl backdrop-blur-md transition-all duration-300 cursor-pointer ${
+            mode === "normal"
+              ? "bg-indigo-600 text-white border border-indigo-400/50 shadow-indigo-900/50 scale-105"
+              : "bg-slate-900/70 hover:bg-slate-800 text-white/70 hover:text-white border border-white/20"
+          }`}
+        >
+          <span>🤖</span>
+          <span>Normal AI</span>
+        </button>
+
+        <button
+          onClick={() => setMode("lesson1")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-base shadow-xl backdrop-blur-md transition-all duration-300 cursor-pointer ${
+            mode === "lesson1"
+              ? "bg-emerald-600 text-white border border-emerald-400/50 shadow-emerald-900/50 scale-105"
+              : "bg-slate-900/70 hover:bg-slate-800 text-white/70 hover:text-white border border-white/20"
+          }`}
+        >
+          <span>📚</span>
+          <span>Lesson 1: Senses</span>
+        </button>
+      </div>
+
       {/* Prominent VR Mode toggle button */}
       <VRModeButton />
 

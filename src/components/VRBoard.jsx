@@ -1,4 +1,5 @@
 "use client";
+import { LESSON_1_STEPS } from "@/data/lessons";
 import { useAITeacher } from "@/hooks/useAITeacher";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
@@ -59,6 +60,8 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxY = 1100) {
 }
 
 export const VRBoard = (props) => {
+  const mode = useAITeacher((state) => state.mode);
+  const lessonStep = useAITeacher((state) => state.lessonStep);
   const currentMessage = useAITeacher((state) => state.currentMessage);
   const messages = useAITeacher((state) => state.messages);
   const loading = useAITeacher((state) => state.loading);
@@ -107,7 +110,7 @@ export const VRBoard = (props) => {
     }
   });
 
-  // Re-draw chalkboard content whenever state or active message changes
+  // Re-draw chalkboard content whenever state, mode, or step changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !texture) return;
@@ -140,14 +143,201 @@ export const VRBoard = (props) => {
     ctx.fillStyle = grad;
     ctx.fillRect(28, 28, width - 56, height - 56);
 
-    // Top Status Indicator / Header
+    const margin = 80;
+    const contentWidth = width - margin * 2;
     const topY = 75;
+
+    // ========================================================
+    // MODE A: LESSON 1 (OUR FIVE SENSES)
+    // ========================================================
+    if (mode === "lesson1") {
+      const step = LESSON_1_STEPS[lessonStep] || LESSON_1_STEPS[0];
+      const totalSteps = LESSON_1_STEPS.length;
+
+      // Header Bar
+      ctx.textAlign = "left";
+      ctx.font = "bold 28px system-ui, -apple-system, sans-serif";
+      ctx.fillStyle = "#6ee7b7";
+      ctx.fillText(
+        `LESSON 1: OUR FIVE SENSES  •  PART ${lessonStep + 1} OF ${totalSteps}`,
+        margin,
+        topY
+      );
+
+      // Status indicator on top right
+      if (isSpeaking) {
+        ctx.textAlign = "right";
+        ctx.font = "bold 28px system-ui, -apple-system, sans-serif";
+        ctx.fillStyle = "#34d399";
+        ctx.fillText("🔊 Teacher Naoki is speaking...", width - margin, topY);
+      } else if (ttsLoading) {
+        ctx.textAlign = "right";
+        ctx.font = "bold 28px system-ui, -apple-system, sans-serif";
+        ctx.fillStyle = "#60a5fa";
+        ctx.fillText("🎙️ Preparing lesson audio...", width - margin, topY);
+      } else {
+        ctx.textAlign = "right";
+        ctx.font = "bold 26px system-ui, -apple-system, sans-serif";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.fillText("📚 Lesson Mode Active", width - margin, topY);
+      }
+
+      // Step Progress Dots
+      const dotSpacing = contentWidth / totalSteps;
+      for (let s = 0; s < totalSteps; s++) {
+        const dotX = margin + s * dotSpacing + dotSpacing / 2;
+        const dotY = topY + 28;
+        ctx.fillStyle =
+          s === lessonStep
+            ? "#fde047"
+            : s < lessonStep
+            ? "#34d399"
+            : "rgba(255, 255, 255, 0.2)";
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, s === lessonStep ? 9 : 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      let curY = 170;
+      ctx.textAlign = "left";
+
+      // Lesson Title with Sense Icon
+      ctx.font = "bold 56px system-ui, -apple-system, sans-serif";
+      ctx.fillStyle = "#fef08a";
+      curY = wrapText(
+        ctx,
+        `${step.icon}  ${step.boardTitle}`,
+        margin,
+        curY,
+        contentWidth,
+        66
+      );
+
+      curY += 15;
+
+      // Divider line
+      ctx.fillStyle = "rgba(52, 211, 153, 0.4)";
+      ctx.fillRect(margin, curY, contentWidth, 3);
+      curY += 40;
+
+      // Main Summary Card Box
+      const boxStartY = curY;
+      const boxPadding = 26;
+      ctx.font = "34px system-ui, -apple-system, sans-serif";
+
+      // Measure summary lines
+      const words = step.summary.split(/\s+/);
+      let line = "";
+      let lineCount = 1;
+      for (let w = 0; w < words.length; w++) {
+        const test = line + words[w] + " ";
+        if (ctx.measureText(test).width > contentWidth - boxPadding * 2 && w > 0) {
+          line = words[w] + " ";
+          lineCount++;
+        } else {
+          line = test;
+        }
+      }
+
+      const hasExample = Boolean(step.example);
+      const boxHeight = lineCount * 46 + (hasExample ? 110 : 0) + boxPadding * 2;
+
+      // Card background
+      ctx.fillStyle = "rgba(6, 78, 59, 0.55)";
+      ctx.strokeStyle = "rgba(52, 211, 153, 0.4)";
+      ctx.lineWidth = 2;
+      drawRoundedRect(ctx, margin, boxStartY, contentWidth, boxHeight, 18);
+      ctx.fill();
+      ctx.stroke();
+
+      // Card summary text
+      ctx.fillStyle = "#ecfdf5";
+      curY = wrapText(
+        ctx,
+        step.summary,
+        margin + boxPadding,
+        boxStartY + boxPadding + 34,
+        contentWidth - boxPadding * 2,
+        46
+      );
+
+      // Card example box
+      if (step.example) {
+        curY += 16;
+        const exY = curY;
+        const exHeight = 60;
+        ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+        ctx.strokeStyle = "rgba(253, 224, 71, 0.3)";
+        ctx.lineWidth = 1.5;
+        drawRoundedRect(
+          ctx,
+          margin + boxPadding,
+          exY,
+          contentWidth - boxPadding * 2,
+          exHeight,
+          12
+        );
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = "bold 30px system-ui, -apple-system, sans-serif";
+        ctx.fillStyle = "#fef08a";
+        ctx.fillText("💡 Example: " + step.example, margin + boxPadding + 20, exY + 41);
+        curY = exY + exHeight;
+      }
+
+      curY = boxStartY + boxHeight + 35;
+
+      // Key Takeaway Points
+      if (step.points && step.points.length > 0 && curY < height - 100) {
+        ctx.font = "bold 28px system-ui, -apple-system, sans-serif";
+        ctx.fillStyle = "#93c5fd";
+        ctx.fillText("KEY POINTS:", margin, curY);
+        curY += 38;
+
+        ctx.font = "28px system-ui, -apple-system, sans-serif";
+        ctx.fillStyle = "#f8fafc";
+
+        for (let i = 0; i < step.points.length; i++) {
+          if (curY > height - 80) break;
+          const pt = step.points[i];
+          curY = wrapText(
+            ctx,
+            `✓  ${pt}`,
+            margin + 16,
+            curY,
+            contentWidth - 32,
+            38,
+            height - 70
+          );
+          curY += 6;
+        }
+      }
+
+      // Bottom Helper Note
+      ctx.textAlign = "center";
+      ctx.font = "bold 24px system-ui, -apple-system, sans-serif";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+      ctx.fillText(
+        "💡 Tap the desk mic orb anytime to answer the question or ask Teacher Naoki anything!",
+        width / 2,
+        height - 35
+      );
+
+      texture.needsUpdate = true;
+      needsUpdateRef.current = true;
+      invalidate();
+      return;
+    }
+
+    // ========================================================
+    // MODE B: NORMAL AI ASSISTANCE (FREE-FORM Q&A)
+    // ========================================================
     ctx.textAlign = "left";
     ctx.font = "bold 26px system-ui, -apple-system, sans-serif";
     ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
     ctx.fillText("AI CLASSROOM TUTOR", 80, topY);
 
-    // Top right badge depending on active state
     if (isSpeaking) {
       ctx.textAlign = "right";
       ctx.font = "bold 28px system-ui, -apple-system, sans-serif";
@@ -195,7 +385,7 @@ export const VRBoard = (props) => {
       ctx.font = "32px system-ui, -apple-system, sans-serif";
       ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
       ctx.fillText(
-        "Ask questions about science, math, history, coding, and more",
+        "Ask questions about science, math, history, coding, or switch to Lesson 1",
         width / 2,
         height / 2 + 150
       );
@@ -206,7 +396,7 @@ export const VRBoard = (props) => {
       return;
     }
 
-    // CASE 2: Transcribing speech (no previous message)
+    // CASE 2: Transcribing speech
     if (speechLoading && !latestMessage) {
       ctx.textAlign = "center";
 
@@ -227,8 +417,6 @@ export const VRBoard = (props) => {
     // CASE 3: Active Message / Answer
     if (latestMessage) {
       let curY = 140;
-      const margin = 80;
-      const contentWidth = width - margin * 2;
 
       // Question Tag Badge
       ctx.font = "bold 28px system-ui, -apple-system, sans-serif";
@@ -316,7 +504,6 @@ export const VRBoard = (props) => {
 
         ctx.font = "32px system-ui, -apple-system, sans-serif";
 
-        // Measure lines to size the card background
         const words = explanationText.split(/\s+/);
         let line = "";
         let lineCount = 1;
@@ -334,7 +521,6 @@ export const VRBoard = (props) => {
           height - boxStartY - 180
         );
 
-        // Draw card background with safe rounded rect
         ctx.fillStyle = "rgba(6, 78, 59, 0.55)";
         ctx.strokeStyle = "rgba(52, 211, 153, 0.4)";
         ctx.lineWidth = 2;
@@ -342,7 +528,6 @@ export const VRBoard = (props) => {
         ctx.fill();
         ctx.stroke();
 
-        // Draw explanation text inside the box
         ctx.fillStyle = "#d1fae5";
         wrapText(
           ctx,
@@ -389,6 +574,8 @@ export const VRBoard = (props) => {
     invalidate();
   }, [
     texture,
+    mode,
+    lessonStep,
     latestMessage,
     loading,
     speechLoading,

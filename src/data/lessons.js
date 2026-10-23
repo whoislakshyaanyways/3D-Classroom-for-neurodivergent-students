@@ -1,0 +1,137 @@
+export const LESSON_1_STEPS = [
+  {
+    id: 0,
+    title: "Welcome & Introduction",
+    senseName: "Five Senses",
+    icon: "🌟",
+    spokenText:
+      "Hello, everyone! Welcome to our science class! Today, we are going to learn about something interesting: our five senses. Our five senses help us understand the world around us. They help us see, hear, smell, taste, and feel things. Are you ready? Let's get started!",
+    boardTitle: "Welcome to Science Class!",
+    subtitle: "Topic: Our Five Senses",
+    summary: "Our senses help us explore, discover, and understand the world around us.",
+    points: [
+      "👁️ Sight — We use our eyes to see",
+      "👂 Hearing — We use our ears to hear",
+      "👃 Smell — We use our nose to smell",
+      "👅 Taste — We use our tongue to taste",
+      "✋ Touch — We use our skin to feel",
+    ],
+  },
+  {
+    id: 1,
+    title: "1. Sense of Sight",
+    senseName: "Sight",
+    icon: "👁️",
+    organ: "Eyes",
+    spokenText:
+      "First, let's learn about sight. We use our eyes to see things around us. We can see colors, shapes, people, and animals. For example, when you look at a beautiful rainbow, you are using your sense of sight.",
+    boardTitle: "1. Sense of Sight (Eyes)",
+    summary: "We use our eyes to see colors, shapes, people, and animals all around us.",
+    example: "Looking at a colorful rainbow in the sky! 🌈",
+    points: [
+      "Body Part: Eyes 👁️",
+      "What it detects: Colors, shapes, movement, and light",
+      "Real-world example: Admiring a beautiful rainbow after rain",
+    ],
+  },
+  {
+    id: 2,
+    title: "2. Sense of Hearing",
+    senseName: "Hearing",
+    icon: "👂",
+    organ: "Ears",
+    spokenText:
+      "Next, we have hearing. We use our ears to hear sounds. We can hear music, birds singing, and people talking. Imagine you hear your favorite song playing. Which sense are you using? That's right! You are using your sense of hearing.",
+    boardTitle: "2. Sense of Hearing (Ears)",
+    summary: "We use our ears to hear sounds, music, voices, and warning signals.",
+    example: "Hearing your favorite song playing or birds chirping! 🎶",
+    points: [
+      "Body Part: Ears 👂",
+      "What it detects: Loud sounds, soft sounds, music, and voices",
+      "Real-world example: Listening to music or a bird singing outside",
+    ],
+  },
+  {
+    id: 3,
+    title: "3. Sense of Smell",
+    senseName: "Smell",
+    icon: "👃",
+    organ: "Nose",
+    spokenText:
+      "Now, let's talk about smell. We use our nose to smell things. Have you ever smelled a flower? Some flowers smell sweet, and some things have an unpleasant smell. Our nose helps us notice different smells around us.",
+    boardTitle: "3. Sense of Smell (Nose)",
+    summary: "We use our nose to smell pleasant scents and notice safety warning odors.",
+    example: "Smelling a sweet garden flower or fresh baked bread! 🌸",
+    points: [
+      "Body Part: Nose 👃",
+      "What it detects: Sweet scents, fresh aromas, and warning smells",
+      "Real-world example: Smelling a blooming rose in the garden",
+    ],
+  },
+  {
+    id: 4,
+    title: "4. Sense of Taste",
+    senseName: "Taste",
+    icon: "👅",
+    organ: "Tongue",
+    spokenText:
+      "Our fourth sense is taste. We use our tongue to help us taste food. For example, a lemon tastes sour, while honey tastes sweet. Our tongue helps us enjoy different flavors. Remember, we should only taste things that are safe to eat or drink.",
+    boardTitle: "4. Sense of Taste (Tongue)",
+    summary: "We use our tongue to enjoy flavors like sweet, sour, salty, and savory.",
+    example: "A lemon tastes sour 🍋, while honey tastes sweet 🍯!",
+    points: [
+      "Body Part: Tongue 👅",
+      "What it detects: Sweet, sour, salty, bitter, and savory flavors",
+      "Important Rule: Only taste things that are safe to eat or drink! ⚠️",
+    ],
+  },
+  {
+    id: 5,
+    title: "5. Sense of Touch",
+    senseName: "Touch",
+    icon: "✋",
+    organ: "Skin",
+    spokenText:
+      "Finally, we have touch. Our skin helps us feel things. Imagine touching a soft pillow or a rough stone. They feel different, don't they? Our skin helps us feel textures, warmth, cold, and pressure.",
+    boardTitle: "5. Sense of Touch (Skin)",
+    summary: "Our skin helps us feel textures, temperatures (warmth/cold), and pressure.",
+    example: "Touching a soft fluffy pillow 🪶 vs a rough stone 🪨!",
+    points: [
+      "Body Part: Skin ✋",
+      "What it detects: Soft vs rough, warm vs cold, gentle pressure",
+      "Real-world example: Feeling a warm blanket or a cool ice cube",
+    ],
+  },
+  {
+    id: 6,
+    title: "Lesson Summary",
+    senseName: "Review",
+    icon: "✨",
+    spokenText:
+      "Great job! We have now learned about all five senses. Let's remember them one more time. Our eyes help us see. Our ears help us hear. Our nose helps us smell. Our tongue helps us taste. And our skin helps us feel touch. These five senses help us explore and understand the world around us.",
+    boardTitle: "Lesson Summary: The Five Senses",
+    summary: "Great job! Let's remember our five superpower senses together:",
+    points: [
+      "👁️ Eyes — Help us SEE the beauty of the world",
+      "👂 Ears — Help us HEAR wonderful sounds",
+      "👃 Nose — Helps us SMELL different aromas",
+      "👅 Tongue — Helps us TASTE delicious food",
+      "✋ Skin — Helps us FEEL textures and temperatures",
+    ],
+  },
+  {
+    id: 7,
+    title: "Quick Question & Discussion",
+    senseName: "Interactive Quiz",
+    icon: "❓",
+    spokenText:
+      "Now, let's try a quick question! If you hear a bird singing, which sense are you using? Take your time. You can answer by speaking or typing. Wonderful! Now, do you have any questions about our five senses? You can ask me anything you would like to understand better. If something is confusing, don't worry. I'll explain it in a simple way. So, what would you like to ask me?",
+    boardTitle: "Quick Question & Open Discussion",
+    summary: "Question: If you hear a bird singing, which sense are you using?",
+    points: [
+      "💬 Answer by speaking (desk mic orb) or typing below!",
+      "❓ You can ask Teacher Naoki anything about the five senses!",
+      "💡 If anything was confusing, I will explain it simply for you.",
+    ],
+  },
+];
