@@ -1,75 +1,52 @@
-// TODO: add OPENAI_API_KEY logic here
-// When ready to connect OpenAI:
-// import OpenAI from "openai";
-// const openai = new OpenAI({ apiKey: process.env["OPENAI_API_KEY"] });
+import OpenAI from "openai";
 
-/*
-System Prompt for General AI Tutor:
-You are an encouraging and knowledgeable AI Tutor designed to help students learn any subject (math, science, history, coding, literature, etc.).
-Your goal is to break down complex concepts into simple, structured, and easy-to-understand explanations.
+export const runtime = "nodejs";
 
-Always respond with a JSON object in the following format:
+const SYSTEM_PROMPT = `You are an encouraging and knowledgeable AI Tutor designed to help students learn any subject (math, science, history, coding, literature, etc.).
+Break down complex concepts into simple, structured, easy-to-understand explanations.
+Keep "answer" and "explanation" short and natural, since they will be read aloud.
+
+Always respond with ONLY a JSON object in this format:
 {
   "answer": "A concise direct answer to the student's question.",
   "explanation": "A clear, engaging explanation of the underlying concept.",
-  "steps": [
-    "Step 1: ...",
-    "Step 2: ...",
-    "Step 3: ..."
-  ]
-}
-*/
+  "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."]
+}`;
 
 export async function GET(req) {
-  // WARNING: Do not expose your keys
-  // WARNING: If you host publicly your project, add an authentication layer to limit the consumption of ChatGPT resources
-
   const question =
     req.nextUrl.searchParams.get("question") || "How do plants make food?";
 
-  // TODO: add OPENAI_API_KEY logic here
-  // If OPENAI_API_KEY is configured in the future, you can invoke the chat completions API:
-  /*
-  const chatCompletion = await openai.chat.completions.create({
-    messages: [
-      {
-        role: "system",
-        content: `You are an encouraging and knowledgeable AI Tutor designed to help students learn any subject.
-Always respond with a JSON object in the following format:
-{
-  "answer": "A concise direct answer to the student's question.",
-  "explanation": "A clear, engaging explanation of the underlying concept.",
-  "steps": [
-    "Step 1: ...",
-    "Step 2: ...",
-    "Step 3: ..."
-  ]
-}`
-      },
-      {
-        role: "user",
-        content: question,
-      }
-    ],
-    model: "gpt-3.5-turbo",
-    response_format: {
-      type: "json_object",
-    },
-  });
-  return Response.json(JSON.parse(chatCompletion.choices[0].message.content));
-  */
+  if (!process.env.GROQ_API_KEY) {
+    console.error("GROQ_API_KEY is missing. Check .env.local and restart the dev server.");
+    return Response.json({ error: "GROQ_API_KEY missing" }, { status: 500 });
+  }
 
-  // Mock response conforming to the general tutor schema
-  const mockResponse = {
-    answer: `Here is a helpful summary for: "${question}"`,
-    explanation:
-      "This is a general tutor explanation breaking down the core concepts into understandable pieces for learning.",
-    steps: [
-      "Understand the key question and identify the main topic.",
-      "Explore the core principles and relevant details step by step.",
-      "Review the summary and apply the concept to practice problems.",
-    ],
-  };
+  try {
+    const client = new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
 
-  return Response.json(mockResponse);
+    const completion = await client.chat.completions.create({
+      model: process.env.GROQ_MODEL || "openai/gpt-oss-20b",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: question },
+      ],
+      response_format: { type: "json_object" },
+    });
+
+    const raw = (completion.choices[0].message.content || "")
+      .replace(/```json|```/g, "")
+      .trim();
+
+    return Response.json(JSON.parse(raw));
+  } catch (err) {
+    console.error("Groq error:", err?.status, err?.message);
+    return Response.json(
+      { error: "Groq failed", details: String(err?.message || err) },
+      { status: 500 }
+    );
+  }
 }

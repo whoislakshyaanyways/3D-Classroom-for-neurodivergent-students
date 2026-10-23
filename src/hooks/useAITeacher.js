@@ -1,4 +1,4 @@
-const { create } = require("zustand");
+import { create } from "zustand";
 
 export const teachers = ["Naoki"];
 
@@ -16,119 +16,92 @@ export const useAITeacher = create((set, get) => ({
     }));
   },
   classroom: "default",
-  setClassroom: (classroom) => {
-    set(() => ({
-      classroom,
-    }));
-  },
+  setClassroom: (classroom) => set(() => ({ classroom })),
   vrMode: false,
-  setVrMode: (vrMode) => {
-    set(() => ({
-      vrMode,
-    }));
-  },
+  setVrMode: (vrMode) => set(() => ({ vrMode })),
   isPresenting: false,
-  setIsPresenting: (isPresenting) => {
-    set(() => ({
-      isPresenting,
-    }));
-  },
+  setIsPresenting: (isPresenting) => set(() => ({ isPresenting })),
   loading: false,
+
   askAI: async (question) => {
-    if (!question) {
-      return;
-    }
+    if (!question) return;
+
     const message = {
       question,
       id: get().messages.length,
     };
-    set(() => ({
-      loading: true,
-    }));
+    set(() => ({ loading: true }));
 
     try {
-      // Ask AI
       const res = await fetch(`/api/ai?question=${encodeURIComponent(question)}`);
       const data = await res.json();
       message.answer = data;
 
-      set(() => ({
-        currentMessage: message,
-      }));
-
       set((state) => ({
+        currentMessage: message,
         messages: [...state.messages, message],
         loading: false,
       }));
       get().playMessage(message);
     } catch (err) {
       console.error("Failed to ask AI:", err);
-      set(() => ({
-        loading: false,
-      }));
+      set(() => ({ loading: false }));
     }
   },
+
   playMessage: async (message) => {
-    set(() => ({
-      currentMessage: message,
-    }));
+    set(() => ({ currentMessage: message }));
 
     if (!message.audioPlayer) {
-      set(() => ({
-        loading: true,
-      }));
+      set(() => ({ loading: true }));
 
       try {
-        // Get TTS using the new answer text
-        const textToSpeak = message.answer?.answer || message.question || "";
-        const audioRes = await fetch(
-          `/api/tts?teacher=${get().teacher}&text=${encodeURIComponent(textToSpeak)}`
-        );
+        // Speak the answer + explanation
+        const textToSpeak =
+          [message.answer?.answer, message.answer?.explanation]
+            .filter(Boolean)
+            .join(" ") ||
+          message.question ||
+          "";
+
+        const audioRes = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teacher: get().teacher, text: textToSpeak }),
+        });
+        if (!audioRes.ok) throw new Error(`TTS request failed: ${audioRes.status}`);
+
         const audio = await audioRes.blob();
         const visemesHeader = audioRes.headers.get("visemes");
         const visemes = visemesHeader ? JSON.parse(visemesHeader) : [];
-        const audioUrl = URL.createObjectURL(audio);
-        const audioPlayer = new Audio(audioUrl);
+        const audioPlayer = new Audio(URL.createObjectURL(audio));
 
         message.visemes = visemes;
         message.audioPlayer = audioPlayer;
         message.audioPlayer.onended = () => {
-          set(() => ({
-            currentMessage: null,
-          }));
+          set(() => ({ currentMessage: null }));
         };
 
         set(() => ({
           loading: false,
-          messages: get().messages.map((m) => {
-            if (m.id === message.id) {
-              return message;
-            }
-            return m;
-          }),
+          messages: get().messages.map((m) => (m.id === message.id ? message : m)),
         }));
       } catch (err) {
         console.error("Failed to load TTS audio:", err);
-        set(() => ({
-          loading: false,
-        }));
+        set(() => ({ loading: false }));
       }
     }
 
     if (message.audioPlayer) {
       message.audioPlayer.currentTime = 0;
       message.audioPlayer.play().catch((err) => {
-        // Empty audio stub or autoplay restrictions
         console.log("Audio playback not started:", err?.message || err);
       });
     }
   },
+
   stopMessage: (message) => {
-    if (message.audioPlayer) {
-      message.audioPlayer.pause();
-    }
-    set(() => ({
-      currentMessage: null,
-    }));
+    if (message.audioPlayer) message.audioPlayer.pause();
+    set(() => ({ currentMessage: null }));
   },
 }));

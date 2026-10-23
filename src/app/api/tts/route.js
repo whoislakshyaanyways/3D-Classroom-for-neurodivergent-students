@@ -1,36 +1,58 @@
-import { PassThrough } from "stream";
+export const runtime = "nodejs";
 
-export async function GET(req) {
-  // WARNING: Do not expose your keys
-  // WARNING: If you host publicly your project, add an authentication layer to limit the consumption of Azure resources
+const VOICES = {
+  Naoki: process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb",
+};
 
-  const teacher = req.nextUrl.searchParams.get("teacher") || "Naoki";
-  const text =
-    req.nextUrl.searchParams.get("text") || "Welcome to your AI classroom!";
+export async function POST(req) {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    console.error("ELEVENLABS_API_KEY missing");
+    return Response.json({ error: "ELEVENLABS_API_KEY missing" }, { status: 500 });
+  }
 
-  // TODO: add SPEECH_KEY / SPEECH_REGION logic here
-  // When ready to connect Azure Speech SDK:
-  /*
-  const sdk = require("microsoft-cognitiveservices-speech-sdk");
-  const speechConfig = sdk.SpeechConfig.fromSubscription(
-    process.env["SPEECH_KEY"],
-    process.env["SPEECH_REGION"]
-  );
-  speechConfig.speechSynthesisVoiceName = `en-US-${teacher}Neural`;
-  const speechSynthesizer = new sdk.SpeechSynthesizer(speechConfig);
-  ...
-  */
+  try {
+    const { teacher = "Naoki", text = "Welcome to your AI classroom!" } =
+      await req.json();
+    const voiceId = VOICES[teacher] || VOICES.Naoki;
 
-  // Stubbed response: empty visemes and empty audio stream
-  const visemes = [];
-  const bufferStream = new PassThrough();
-  bufferStream.end(Buffer.from([]));
+    const res = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+      {
+        method: "POST",
+        headers: {
+          "xi-api-key": apiKey,
+          "Content-Type": "application/json",
+          Accept: "audio/mpeg",
+        },
+        body: JSON.stringify({
+          text: text.slice(0, 2500),
+          model_id: process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2",
+        }),
+      }
+    );
 
-  return new Response(bufferStream, {
-    headers: {
-      "Content-Type": "audio/mpeg",
-      "Content-Disposition": `inline; filename=tts.mp3`,
-      Visemes: JSON.stringify(visemes),
-    },
-  });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("ElevenLabs error:", res.status, body);
+      return Response.json(
+        { error: "TTS failed", status: res.status, body },
+        { status: 500 }
+      );
+    }
+
+    const audioBuffer = await res.arrayBuffer();
+    return new Response(audioBuffer, {
+      headers: {
+        "Content-Type": "audio/mpeg",
+        Visemes: JSON.stringify([]),
+      },
+    });
+  } catch (err) {
+    console.error("TTS route crashed:", err);
+    return Response.json(
+      { error: "TTS crashed", details: String(err?.message || err) },
+      { status: 500 }
+    );
+  }
 }
