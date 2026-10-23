@@ -4,19 +4,36 @@ const VOICES = {
   Naoki: process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb",
 };
 
+// Safely splits text into chunks strictly under maxLen (140 chars) to prevent Google TTS 400 Bad Request
+function splitTextIntoSafeChunks(text, maxLen = 140) {
+  if (!text) return [];
+  const words = text.replace(/[\r\n]+/g, " ").split(/\s+/).filter(Boolean);
+  const chunks = [];
+  let current = "";
+
+  for (const word of words) {
+    if ((current + " " + word).trim().length <= maxLen) {
+      current = (current + " " + word).trim();
+    } else {
+      if (current) chunks.push(current);
+      current = word.slice(0, maxLen);
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
 // Generates free, high-speed fallback MP3 audio using Google TTS when ElevenLabs quota is exceeded
 async function getGoogleTTS(text) {
-  // Split into natural sentence or punctuation chunks under 160 characters
-  const chunks = text.match(/[^.!?,\n]+[.!?,\n]+|[^.!?,\n]+$/g) || [text];
+  const chunks = splitTextIntoSafeChunks(text, 140);
+  if (chunks.length === 0) chunks.push("Hello");
+
   const buffers = [];
 
   for (const chunk of chunks) {
-    const trimmed = chunk.trim();
-    if (!trimmed) continue;
-
     const url =
       "https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=" +
-      encodeURIComponent(trimmed);
+      encodeURIComponent(chunk);
 
     const res = await fetch(url, {
       headers: {
@@ -25,12 +42,16 @@ async function getGoogleTTS(text) {
       },
     });
 
-    if (!res.ok) {
-      throw new Error(`Google TTS request failed with status: ${res.status}`);
+    if (res.ok) {
+      const buf = await res.arrayBuffer();
+      buffers.push(Buffer.from(buf));
+    } else {
+      console.warn(`Google TTS chunk failed with status ${res.status}: "${chunk}"`);
     }
+  }
 
-    const buf = await res.arrayBuffer();
-    buffers.push(Buffer.from(buf));
+  if (buffers.length === 0) {
+    throw new Error("No audio chunks could be fetched from Google TTS");
   }
 
   return Buffer.concat(buffers);

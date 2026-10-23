@@ -162,17 +162,17 @@ export const useAITeacher = create((set, get) => ({
   playMessage: async (message) => {
     if (!message || !message.answer) return;
 
+    const textToSpeak =
+      [message.answer?.answer, message.answer?.explanation]
+        .filter(Boolean)
+        .join(" ") ||
+      message.question ||
+      "";
+
     if (!message.audioPlayer) {
       set(() => ({ ttsLoading: true }));
 
       try {
-        const textToSpeak =
-          [message.answer?.answer, message.answer?.explanation]
-            .filter(Boolean)
-            .join(" ") ||
-          message.question ||
-          "";
-
         const audioRes = await fetch("/api/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -218,7 +218,11 @@ export const useAITeacher = create((set, get) => ({
             utterance.rate = 0.95;
             utterance.pitch = 1.05;
             utterance.onstart = () => {
-              set(() => ({ ttsLoading: false, isSpeaking: true }));
+              set(() => ({
+                ttsLoading: false,
+                isSpeaking: true,
+                currentMessage: message,
+              }));
             };
             utterance.onend = () => {
               set(() => ({ isSpeaking: false }));
@@ -319,7 +323,11 @@ export const useAITeacher = create((set, get) => ({
           utterance.rate = 0.95;
           utterance.pitch = 1.05;
           utterance.onstart = () => {
-            set(() => ({ ttsLoading: false, isSpeaking: true }));
+            set(() => ({
+              ttsLoading: false,
+              isSpeaking: true,
+              currentMessage: { isLesson: true, step },
+            }));
           };
           utterance.onend = () => {
             set(() => ({ isSpeaking: false }));
